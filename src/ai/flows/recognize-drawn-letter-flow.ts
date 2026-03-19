@@ -2,7 +2,7 @@
 /**
  * @fileOverview A flow to recognize drawn English text, solve math equations, or identify geometric shapes.
  *
- * - recognizeDrawnLetter - A function that handles recognition and math/shape analysis.
+ * - recognizeDrawnLetter - A function that handles recognition and math/shape analysis with retry logic.
  * - RecognizeDrawnTextInput - The input type.
  * - RecognizeDrawnTextOutput - The return type.
  */
@@ -25,7 +25,7 @@ const RecognizeDrawnTextOutputSchema = z.object({
   recognizedText: z
     .string()
     .optional()
-    .describe('The English word, text, or math expression identified from the drawing. PRESERVE THE EXACT CASE AS DRAWN (e.g. "Apple" not "APPLE").'),
+    .describe('The English word, text, or math expression identified from the drawing. PRESERVE THE EXACT CASE AS DRAWN (e.g. "Apple" not "apple").'),
   mathResult: z
     .string()
     .optional()
@@ -42,12 +42,6 @@ const RecognizeDrawnTextOutputSchema = z.object({
 export type RecognizeDrawnTextOutput = z.infer<
   typeof RecognizeDrawnTextOutputSchema
 >;
-
-export async function recognizeDrawnLetter(
-  input: RecognizeDrawnTextInput
-): Promise<RecognizeDrawnTextOutput> {
-  return recognizeDrawnTextFlow(input);
-}
 
 const recognizeTextPrompt = ai.definePrompt({
   name: 'recognizeTextPrompt',
@@ -71,13 +65,14 @@ STRICTNESS:
 Image: {{media url=imageDataUri}}`,
 });
 
-const recognizeDrawnTextFlow = ai.defineFlow(
-  {
-    name: 'recognizeDrawnTextFlow',
-    inputSchema: RecognizeDrawnTextInputSchema,
-    outputSchema: RecognizeDrawnTextOutputSchema,
-  },
-  async input => {
+export async function recognizeDrawnLetter(
+  input: RecognizeDrawnTextInput
+): Promise<RecognizeDrawnTextOutput> {
+  // YAHAN FIX KIYA GAYA HAI (3 ki jagah 0 kar diya hai):
+  const maxRetries = 0;
+  let attempt = 0;
+
+  const executeFlow = async (): Promise<RecognizeDrawnTextOutput> => {
     try {
       const {output} = await recognizeTextPrompt(input);
 
@@ -91,19 +86,35 @@ const recognizeDrawnTextFlow = ai.defineFlow(
         detectedShape: output.detectedShape || 'none',
       };
     } catch (error: any) {
-      // Catching Google AI Quota (429) errors gracefully
-      if (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
+      const errorStr = JSON.stringify(error).toLowerCase();
+      const isQuotaError = 
+        errorStr.includes('429') || 
+        errorStr.includes('resource_exhausted') || 
+        errorStr.includes('too many requests');
+      
+      if (isQuotaError && attempt < maxRetries) {
+        attempt++;
+        // Exponential backoff: 2s, 4s, 6s
+        const delay = attempt * 2000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return executeFlow();
+      }
+
+      if (isQuotaError) {
         return {
           error: 'QUOTA_EXCEEDED',
           recognizedText: 'AI is Resting...',
           detectedShape: 'none'
         };
       }
+
       return { 
         error: 'System Error',
         recognizedText: 'Error',
         detectedShape: 'none'
       };
     }
-  }
-);
+  };
+
+  return executeFlow();
+}
