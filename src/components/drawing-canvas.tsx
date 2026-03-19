@@ -224,10 +224,21 @@ export function DrawingCanvas({ onCapture, isProcessing }: DrawingCanvasProps) {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isAirMode, isCameraOn]); 
 
+  // YAHAN FIX KIYA GAYA HAI:
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.code === "Space") { e.preventDefault(); handleCapture(); } if (e.code === "KeyC") clearCanvas(); };
-    window.addEventListener("keydown", handleKeyDown); return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleCapture]);
+    const handleKeyDown = (e: KeyboardEvent) => { 
+      if (e.code === "Space") { 
+        e.preventDefault(); 
+        // Agar system pehle se process nahi kar raha hai, tabhi request bhejo
+        if (!isProcessing) {
+          handleCapture(); 
+        }
+      } 
+      if (e.code === "KeyC") clearCanvas(); 
+    };
+    window.addEventListener("keydown", handleKeyDown); 
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleCapture, isProcessing]);
 
   return (
     <div className="flex flex-col gap-6 items-center w-full">
