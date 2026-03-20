@@ -2,12 +2,12 @@ Act as an expert Python Computer Vision and AI developer. Write the complete, op
 
 Please implement the exact logic below using OpenCV, MediaPipe, pyttsx3, and pytesseract:
 
-1.  **Camera & Canvas Setup:**
+ # 1.  **Camera & Canvas Setup:**
     * Initialize the webcam with a resolution of 1280x720.
     * Flip the frame horizontally (`cv2.flip(img, 1)`) to create a natural mirror effect.
     * Create an `imgCanvas` (NumPy zeros array) of the exact same size.
 
-2.  **Voice Assistant (No Lag):**
+# 2.  **Voice Assistant (No Lag):**
     * Initialize `pyttsx3`. Set the voice to the Female Voice (Index 1).
     * Create a `speak(text)` function that uses the `threading` module to run asynchronously, ensuring the video feed NEVER freezes.
     * Say "Welcome to Project Magic" on startup.
